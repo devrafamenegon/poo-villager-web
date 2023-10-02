@@ -1,72 +1,94 @@
 <template>
-  <v-container>
-    <v-row>
-      <v-col cols="12">
-        <v-data-table
-          :headers="(headers as any)"
-          :items="villagers"
-          item-key="id"
-          @click:row="selectVillager"
+  <div class="table-container">
+    <custom-notification :show=showNotification :message=notifierMessage />
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Block</th>
+          <th>Apartment</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="villager in villagers"
+          :key="villager.id"
+          :class="{ 'selected-row': villager === selectedVillager }"
         >
-          <template v-slot:top>
-            <v-toolbar>
-              <v-toolbar-title>Registered Villagers</v-toolbar-title>
-              <v-divider class="mx-4" inset vertical></v-divider>
-              <v-spacer></v-spacer>
-              <v-btn @click="createVillager" :disabled="isCreating" color="success">
-                Criar
-              </v-btn>
-              <v-btn
-                @click="editVillager"
-                :disabled="!selectedVillager || isCreating"
-                color="warning"
-              >
-                Editar
-              </v-btn>
-              <v-btn
-                @click="deleteVillager"
-                :disabled="!selectedVillager || isCreating"
-                color="error"
-              >
-                Excluir
-              </v-btn>
+          <td>
+            <input
+              type="radio"
+              @change="selectTableLine(villager)"
+              :checked="villager === selectedVillager"
+              :disabled="isCreating"
+              :class="{ 'disabled-button': isCreating }"
+            />
+          </td>
+          <td>{{ villager.id }}</td>
+          <td>{{ villager.name }}</td>
+          <td>{{ villager.email }}</td>
+          <td>{{ villager.block }}</td>
+          <td>{{ villager.apartment }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-            </v-toolbar>
-          </template>
-        </v-data-table>
-      </v-col>
-    </v-row>
+  <div class="btn-container">
+    <button
+      id="btn-create"
+      @click="create()"
+    >Criar</button>
 
-    <v-row v-if="(selectedVillager !== null) && (isEditing || isCreating)">
-      <v-col cols="12">
-        <v-form ref="form" @submit.prevent="saveEdit">
-          <v-text-field v-model="selectedVillager.name" label="Nome"></v-text-field>
-          <v-text-field v-model="selectedVillager.email" label="Email"></v-text-field>
-          <v-text-field v-model="selectedVillager.block" label="Bloco" type="number"></v-text-field>
-          <v-text-field v-model="selectedVillager.apartment" label="Apartamento" type="number"></v-text-field>
-          <v-row>
-            <v-col cols="12" sm="6" md="3">
-              <v-btn @click="saveEdit" :disabled="isCreating" color="success">
-                {{ isCreating ? 'Criar' : 'Salvar' }}
-              </v-btn>
-            </v-col>
-            <v-col cols="12" sm="6" md="3">
-              <v-btn @click="cancelEdit" color="grey">
-                Cancelar
-              </v-btn>
-            </v-col>
-          </v-row>
-        </v-form>
-      </v-col>
-    </v-row>
-  </v-container>
+    <button
+      id="btn-edit"
+      @click="edit()"
+      :class="{ 'disabled-button': !selectedVillager || isCreating }"
+      :disabled="!selectedVillager || isCreating"
+    >Editar</button>
+
+    <button
+      id="btn-delete"
+      @click="deleteVillager"
+      :class="{ 'disabled-button': !selectedVillager || isCreating }"
+      :disabled="!selectedVillager || isCreating"
+    >Excluir</button>
+  </div>
+
+  <div class="form-container" v-if="(selectedVillager !== null) && (isEditing || isCreating)">
+    <h2>{{ isCreating ? 'Create Villager' : 'Update Villager' }}</h2>
+    <form @submit.prevent="saveForm">
+      <div class="form-group">
+        <label for="name">Nome:</label>
+        <input type="text" id="name" v-model="selectedVillager.name" />
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="text" id="email" v-model="selectedVillager.email" />
+      </div>
+      <div class="form-group">
+        <label for="block">Block:</label>
+        <input type="number" id="block" v-model="selectedVillager.block" />
+      </div>
+      <div class="form-group">
+        <label for="apartment">Apartment:</label>
+        <input type="number" id="apartment" v-model="selectedVillager.apartment" />
+      </div>
+      <div class="form-actions">
+        <button id="form-btn-save" type="submit">{{ isCreating ? 'Create' : 'Save' }}</button>
+        <button id="form-btn-cancel" @click="closeForm">Cancel</button>
+      </div>
+    </form>
+  </div>
 </template>
 
 <script lang="ts">
+import { api, enpointVillagers } from '@/services/config/httpClient';
 import { defineComponent } from 'vue';
-import {
-  VDataTable,
-} from "vuetify/labs/VDataTable";
+import CustomNotification from '@/components/CustomNotification.vue';
 
 interface Villager {
   id: number;
@@ -85,74 +107,241 @@ export default defineComponent({
     }
   },
   components: {
-    VDataTable
+    CustomNotification
   },
   data() {
     return {
       selectedVillager: null as any,
       isEditing: false,
       isCreating: false,
-      headers: [
-        { text: 'ID', value: 'id' },
-        { text: 'Nome', value: 'name' },
-        { text: 'Email', value: 'email' },
-        { text: 'Bloco', value: 'block' },
-        { text: 'Apartamento', value: 'apartment' },
-      ],
+      notifierMessage: '',
+      showNotification: false
     };
   },
+  watch: {
+    showNotification(newValue: boolean) {
+      if (newValue) {
+        setTimeout(() => {
+          this.showNotification = false;
+        }, 3000); // 3000 milissegundos = 3 segundos
+      }
+    }
+  },
   methods: {
-    selectVillager(item: any) {
-      this.selectedVillager = item;
+    updateTable(): void {
+      this.$emit('update')
     },
-    createVillager() {
-      this.selectedVillager = { id: null, name: '', email: '', block: null, apartment: null };
-      this.isEditing = false;
-      this.isCreating = true;
-    },
-    editVillager() {
-      if (this.selectedVillager) {
-        this.isEditing = true;
-        this.isCreating = false;
-      }
-    },
-    async deleteVillager() {
-      if (this.selectedVillager) {
-        try {
-          // Implemente a lógica para excluir o vilarejo aqui
-          console.log('Vilarejo excluído com sucesso.');
-        } catch (error) {
-          console.error('Erro ao excluir o vilarejo:', error);
-        }
-      }
-    },
-    async saveEdit() {
-      if (this.selectedVillager) {
-        try {
-          if (this.isCreating) {
-            console.log('Vilarejo criado com sucesso.');
-          } else if (this.isEditing) {
-            // Implemente a lógica para editar o vilarejo aqui
-            console.log('Vilarejo editado com sucesso.');
-          }
 
-          this.selectedVillager = null;
-          this.isEditing = false;
-          this.isCreating = false;
+    selectTableLine(villager: Villager): void {
+      this.selectedVillager = villager;
+    },
+
+    create(): void {
+      this.isCreating = true;
+      this.isEditing = false;
+      this.selectedVillager = {} as Villager;
+    },
+
+    edit(): void {
+      this.isEditing = true;
+      this.isCreating = false;
+    },
+
+    async deleteVillager(): Promise<void> {
+      if (this.selectedVillager) {
+        const villagerId = this.selectedVillager.id;
+
+        try {
+          const response = await api.delete(`${enpointVillagers}/${villagerId}`);
+
+          if (response.status === 200) {
+            this.notifierMessage = "Villager excluído com sucesso.";
+            this.showNotification = true;
+          }
         } catch (error) {
-          console.error('Erro ao salvar as alterações no vilarejo:', error);
+          this.notifierMessage = "Erro inesperado.";
+          this.showNotification = true;
+          console.error('Erro ao excluir o Villager:', error);
+        }
+      }
+
+      this.updateTable();
+      this.selectedVillager = null;
+    },
+
+    async saveForm(): Promise<void>  {
+      if (this.selectedVillager) {
+        if (this.isCreating) {
+          try {
+            const response = await api.post(`${enpointVillagers}`, this.selectedVillager);
+
+            if (response.status === 200) {
+              this.notifierMessage = "Villager criado com sucesso.";
+              this.showNotification = true;
+              this.updateTable();
+              this.closeForm();
+            }
+
+            // TODO - se não é 200, cai direto no catch
+            if (response.status === 400){
+              this.notifierMessage = "Villager não pode ser criado pois possui campos inválidos.";
+              this.showNotification = true;
+            }
+
+          } catch (error) {
+            this.notifierMessage = "Erro inesperado.";
+            this.showNotification = true;
+            console.error('Erro ao criar o villager:', error);
+          }
+        }
+
+        if (this.isEditing) {
+          try {
+            const response = await api.put(`${enpointVillagers}/${this.selectedVillager.id}`, this.selectedVillager);
+
+            if (response.status === 200) {
+              this.notifierMessage = "Villager editada com sucesso.";
+              this.showNotification = true;
+              this.updateTable();
+              this.closeForm();
+            }
+
+            // TODO - se não é 200, cai direto no catch
+            if (response.status === 400){
+              this.showNotification = true;
+              this.notifierMessage = "Villager não pode ser criado pois possui campos inválidos.";
+            }
+
+          } catch (error) {
+            this.showNotification = true;
+            this.notifierMessage = "Erro inesperado.";
+            console.error('Erro ao atualizar o villager:', error);
+          }
         }
       }
     },
-    cancelEdit() {
+
+    closeForm(): void {
       this.selectedVillager = null;
       this.isEditing = false;
       this.isCreating = false;
+      this.updateTable();
     },
-  },
+  }
 });
 </script>
 
 <style scoped>
-/* Adicione seus estilos CSS aqui */
+  .table-container {
+    margin-top: 20px;
+    max-height: 350px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+    white-space: nowrap;
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+  }
+
+  th {
+    background-color: #f2f2f2;
+  }
+
+  td:first-child {
+    width: 2px;
+  }
+
+  td:nth-child(2) {
+    width: 48px;
+  }
+
+  .btn-container {
+    margin-top: 25px;
+  }
+
+  button {
+    padding: 5px 10px;
+    margin-right: 10px;
+    cursor: pointer;
+    color: #fff;
+  }
+
+  #btn-create {
+    background-color: #49CC8E;
+  }
+
+  #btn-edit {
+    background-color: #FCA130;
+  }
+
+  #btn-delete {
+    background-color: #F93E3E;
+  }
+
+  .selected-row {
+    background-color: #f0f0f0;
+  }
+
+  .disabled-button {
+    cursor: not-allowed;
+  }
+
+  .form-container {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 24px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+  }
+
+  .form-container h2 {
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+  }
+
+  label {
+    margin-bottom: 5px;
+  }
+
+  input {
+    border: 1px solid #ccc;
+    padding: 3px;
+  }
+
+  .form-actions {
+    margin-top: 15px;
+  }
+
+  .form-actions button {
+    margin-right: 10px;
+  }
+
+  #form-btn-save {
+    background-color: #49CC8E;
+  }
+
+  #form-btn-cancel {
+    background-color: #b6b6b6;
+  }
 </style>

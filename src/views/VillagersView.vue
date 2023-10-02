@@ -2,7 +2,7 @@
   <v-container>
     <v-row v-if="!isLoading">
       <v-col cols="12">
-        <VillagersTable :villagers="data" />
+        <VillagersTable :villagers="data" @update="getData"/>
       </v-col>
     </v-row>
   </v-container>

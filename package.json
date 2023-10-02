@@ -13,6 +13,7 @@
     "axios": "^1.5.1",
     "core-js": "^3.29.0",
     "roboto-fontface": "*",
+    "v-snackbars": "^3.2.8",
     "vue": "^3.2.0",
     "vue-router": "^4.0.0",
     "vuetify": "^3.0.0"
@@ -29,6 +30,7 @@
     "unplugin-fonts": "^1.0.3",
     "vite": "^4.2.0",
     "vite-plugin-vuetify": "^1.0.0",
-    "vue-tsc": "^1.2.0"
+    "vue-tsc": "^1.2.0",
+    "vuetify-notifier": "^0.0.10"
   }
 }
